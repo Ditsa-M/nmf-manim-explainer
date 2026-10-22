@@ -1,0 +1,492 @@
+1
+00:00:00,000 --> 00:00:06,783
+A spectrometer shines light through a sample and records how much light is absorbed at every wavelength.
+
+2
+00:00:06,783 --> 00:00:15,483
+Our samples are mixtures, so each spectrum is a sum of overlapping bands, and we cannot simply read off what is inside.
+
+3
+00:00:16,083 --> 00:00:24,400
+Non-negative matrix factorization, or NMF, pulls such mixtures apart into pure parts, and the amount of each part in every sample.
+
+4
+00:00:24,400 --> 00:00:34,250
+It began in chemistry, as positive matrix factorization by Paatero and Tapper in 1994, and was popularised by Lee and Seung in Nature in 1999.
+
+5
+00:00:34,250 --> 00:00:43,717
+By the end you should be able to answer four questions. What goes in? What comes out? What is kept, and what is lost?
+
+6
+00:00:43,717 --> 00:00:46,267
+And which biochemical question becomes easier?
+
+7
+00:00:46,867 --> 00:00:57,883
+What goes in is a matrix V with n rows and m columns. Each row is a sample, and each column is a feature, such as one wavelength.
+
+8
+00:00:57,883 --> 00:01:04,667
+The only requirement is that every entry is zero or positive. Absorbances, counts and intensities all qualify.
+
+9
+00:01:05,267 --> 00:01:10,117
+For spectra this structure comes straight from physics. By the Beer–Lambert law,
+
+10
+00:01:10,117 --> 00:01:18,817
+the absorbance of sample i at wavelength j is the path length times a sum over species of concentration times molar absorptivity.
+
+11
+00:01:18,817 --> 00:01:28,283
+In matrix form, A equals C times E. Both factors are non-negative, so a stack of mixture spectra is exactly a non-negative matrix product.
+
+12
+00:01:28,883 --> 00:01:33,733
+Our example data: 30 mixture spectra at 301 wavelengths, 9,030 non-negative numbers.
+
+13
+00:01:34,333 --> 00:01:37,650
+What comes out are two smaller non-negative matrices:
+
+14
+00:01:37,650 --> 00:01:47,117
+W, with n rows and k columns, and H, with k rows and m columns, chosen so that V is approximately W times H.
+
+15
+00:01:47,117 --> 00:01:56,583
+Rows of H are the parts, for example pure spectra. Rows of W are the amounts: how much of each part every sample contains.
+
+16
+00:01:56,583 --> 00:02:09,900
+Each entry of the product is a dot product of a row of W with a column of H. Here 1.9 times 2.8 plus 0.1 times 0.0 gives 5.32, close to the measured 5.
+
+17
+00:02:10,500 --> 00:02:21,900
+Equivalently, W times H is a sum of k rank-one layers, each an amount column times a part row. Because nothing is negative, the layers can only add up;
+
+18
+00:02:21,900 --> 00:02:23,300
+they never cancel.
+
+19
+00:02:23,300 --> 00:02:33,150
+So W times H has rank at most k, and it is stored in k times n plus m numbers instead of n times m:
+
+20
+00:02:33,150 --> 00:02:39,550
+for our 30 spectra with k = 3, 993 instead of 9,030, about 9 times fewer.
+
+21
+00:02:40,150 --> 00:02:43,083
+W and H are found by optimization:
+
+22
+00:02:43,083 --> 00:02:50,633
+minimize half the squared Frobenius distance between V and W times H, with both factors constrained to be non-negative.
+
+23
+00:02:50,633 --> 00:02:54,333
+Squared error is the negative log-likelihood under Gaussian noise.
+
+24
+00:02:54,333 --> 00:03:02,267
+For count data we use the generalized Kullback–Leibler divergence instead, which is the negative Poisson log-likelihood up to a constant.
+
+25
+00:03:02,867 --> 00:03:08,117
+The gradient with respect to H is W-transpose W H minus W-transpose V.
+
+26
+00:03:08,117 --> 00:03:17,583
+Take a gradient step with its own step size for every entry, and choose eta equal to H divided element-wise by W-transpose W H.
+
+27
+00:03:17,583 --> 00:03:27,833
+The H terms cancel and the subtraction becomes a ratio. This is Lee and Seung's multiplicative update, and the same algebra gives the update for W.
+
+28
+00:03:27,833 --> 00:03:35,000
+Every factor is non-negative, so W and H stay non-negative without clipping, and the loss provably never increases.
+
+29
+00:03:35,000 --> 00:03:39,083
+On our toy matrix it falls from 27.4 to 1.59.
+
+30
+00:03:39,083 --> 00:03:45,483
+At a fixed point the Karush–Kuhn–Tucker conditions hold: wherever H is positive, its gradient is zero.
+
+31
+00:03:45,483 --> 00:03:51,117
+But the loss is not jointly convex, so different starts reach different local minima.
+
+32
+00:03:51,717 --> 00:03:57,350
+Geometrically, each sample is a point in feature space, here with just two features.
+
+33
+00:03:57,350 --> 00:04:02,200
+NMF finds k non-negative directions, the parts, whose cone contains the data.
+
+34
+00:04:03,400 --> 00:04:10,567
+Every point is a non-negative combination of the parts, which is exactly the Beer–Lambert picture of a mixture.
+
+35
+00:04:10,567 --> 00:04:15,417
+PCA instead centres the data and finds orthogonal directions of maximal variance.
+
+36
+00:04:15,417 --> 00:04:19,500
+They leave the positive quadrant, so samples need negative coefficients.
+
+37
+00:04:19,500 --> 00:04:23,967
+So NMF keeps additive, parts-based structure and the main rank-k patterns.
+
+38
+00:04:23,967 --> 00:04:33,817
+It loses the residual, which is noise plus anything beyond k parts, the absolute scale and order of the parts, and possibly small, rare components.
+
+39
+00:04:33,817 --> 00:04:44,450
+It also gives up a little fit. By the Eckart–Young theorem, truncated SVD is the best rank-k approximation: 3.12 versus 3.18 for NMF on our toy matrix.
+
+40
+00:04:45,050 --> 00:04:48,367
+Why not just look at the raw data?
+
+41
+00:04:48,367 --> 00:04:55,917
+In a stopped-flow experiment two solutions are mixed within milliseconds, and absorption spectra are recorded while the reaction runs.
+
+42
+00:04:55,917 --> 00:05:02,700
+We simulate a two-step reaction: A turns into an intermediate B, which turns into the product C.
+
+43
+00:05:02,700 --> 00:05:10,633
+With first-order steps, A decays as a single exponential, and B rises and falls as a difference of two exponentials.
+
+44
+00:05:11,233 --> 00:05:16,867
+Here are the data: 41 spectra over 100 seconds, coloured from early to late.
+
+45
+00:05:16,867 --> 00:05:24,033
+The bands overlap, and B is never present on its own, so its spectrum cannot be measured directly.
+
+46
+00:05:24,033 --> 00:05:34,283
+From the raw spectra we cannot tell how many species there are, whether an intermediate exists, what it looks like, or how fast each step is.
+
+47
+00:05:34,883 --> 00:05:43,967
+By Beer–Lambert the data matrix is concentrations over time times pure spectra, so V equals W times H with k equal to three.
+
+48
+00:05:43,967 --> 00:05:47,283
+NMF needs no kinetic model to find them.
+
+49
+00:05:47,283 --> 00:05:50,283
+H holds the pure spectra.
+
+50
+00:05:50,283 --> 00:05:58,983
+Solid lines are what NMF recovered and dashed lines are the truth used in the simulation, with correlations of 1.000, 0.998, 1.000,
+
+51
+00:05:58,983 --> 00:06:03,067
+including the spectrum of B, which was never measured alone.
+
+52
+00:06:03,067 --> 00:06:13,317
+W holds the time courses. A decays, B rises and falls, and C grows: the shape of a consecutive reaction, found without telling NMF the mechanism.
+
+53
+00:06:13,317 --> 00:06:20,867
+Fitting the kinetic model to W, with a free amplitude for each species because W has no absolute scale,
+
+54
+00:06:20,867 --> 00:06:28,033
+gives k1 = 0.201 per second against a true 0.2, and k2 = 0.0487 against a true 0.05.
+
+55
+00:06:28,033 --> 00:06:34,050
+So the transform turns 12,341 overlapping numbers into 1,026 interpretable ones and a direct answer:
+
+56
+00:06:34,050 --> 00:06:39,300
+one intermediate, absorbing at 514 nanometres, forming at k1 and decaying at k2.
+
+57
+00:06:39,900 --> 00:06:48,217
+That result depended on choices. PCA has few knobs: the number of components, and whether to centre and scale the data.
+
+58
+00:06:48,217 --> 00:07:00,767
+NMF has more. First k, chosen from the elbow of the error curve and the stability of the parts across restarts: 0.998 at k = 3 but 0.906 at k = 4.
+
+59
+00:07:00,767 --> 00:07:10,617
+Second, the loss. The beta-divergence family includes squared error at beta equals two, KL at one and Itakura–Saito at zero; it should match the noise.
+
+60
+00:07:10,617 --> 00:07:17,400
+Third, initialization: six random starts ended between 1.50 and 1.76, and an SVD-based NNDSVDa start reached 1.51.
+
+61
+00:07:17,400 --> 00:07:28,033
+Fourth, regularization. An L1 penalty with alpha = 0.005 raised the zeros in H from 5 to 36 percent, while the error rose from 1.73 to 2.29.
+
+62
+00:07:28,033 --> 00:07:34,050
+Finally preprocessing, such as baseline removal and normalization, and the solver with its stopping tolerance.
+
+63
+00:07:34,650 --> 00:07:42,200
+The same move answers many biochemical questions. Which species are mixed in a spectrum? Is there a kinetic intermediate?
+
+64
+00:07:42,200 --> 00:07:45,133
+Where is each metabolite in a tissue?
+
+65
+00:07:45,133 --> 00:07:54,983
+Which DNA-damage processes shaped a genome? Which gene programs run in which cells? And which neurons fire, and when? The fourth question is our paper.
+
+66
+00:07:55,583 --> 00:08:01,600
+Our paper is Alexandrov and colleagues, Nature 2013: Signatures of mutational processes in human cancer.
+
+67
+00:08:01,600 --> 00:08:04,600
+Every cancer genome carries somatic mutations.
+
+68
+00:08:04,600 --> 00:08:13,683
+Different processes, such as ultraviolet light, tobacco smoke or enzymes that edit DNA, damage DNA in different ways and so leave different patterns.
+
+69
+00:08:13,683 --> 00:08:20,850
+The authors collected 4,938,362 mutations from 7,042 cancers: 507 whole genomes and 6,535 exomes, across 30 cancer types.
+
+70
+00:08:21,450 --> 00:08:26,300
+Each substitution is classified by the base change and its two neighbours:
+
+71
+00:08:26,300 --> 00:08:33,850
+six substitution types, times four bases on the five-prime side, times four on the three-prime side, gives 96 classes.
+
+72
+00:08:33,850 --> 00:08:42,933
+So each genome becomes a vector of 96 counts; this simulated one has 3,952 mutations. Stacked, the genomes form a non-negative count matrix:
+
+73
+00:08:42,933 --> 00:08:44,333
+exactly NMF's input.
+
+74
+00:08:44,933 --> 00:08:52,100
+The paper writes the catalogue matrix M, mutation classes by genomes, as P times E: signatures times exposures.
+
+75
+00:08:52,100 --> 00:08:58,117
+In our notation V is M transposed, H holds the signatures and W the exposures.
+
+76
+00:08:58,117 --> 00:09:07,583
+Each count is a sum over processes: how often process r produces mutation class j, times how strongly process r acted on genome g.
+
+77
+00:09:07,583 --> 00:09:14,750
+They ran NMF separately in each of the 30 cancer types, with bootstrap resampling to guard against over-fitting.
+
+78
+00:09:14,750 --> 00:09:21,150
+They chose k where the signatures were reproducible across runs and the reconstruction error was low,
+
+79
+00:09:21,150 --> 00:09:25,617
+then clustered similar signatures across cancer types into 21 validated signatures.
+
+80
+00:09:26,217 --> 00:09:29,533
+We reproduced the choice of k in miniature:
+
+81
+00:09:29,533 --> 00:09:37,083
+120 simulated genomes, 100,465 mutations and four planted processes, fitted with the KL loss because the data are counts.
+
+82
+00:09:37,083 --> 00:09:41,933
+Reproducibility is the worst cosine similarity between matched signatures across six restarts.
+
+83
+00:09:41,933 --> 00:09:50,250
+At k = 4 the error stops falling and reproducibility is still 0.998; at k = 5 it drops to 0.946.
+
+84
+00:09:50,250 --> 00:09:57,033
+With k = 4 the recovered signatures match the planted ones with cosine similarity 0.989 to 1.000.
+
+85
+00:09:57,633 --> 00:10:04,033
+The paper's key Figure 2 draws each signature, a row of H, over the 96 classes.
+
+86
+00:10:04,033 --> 00:10:08,117
+Ours come from the simulation, shaped after the paper's descriptions.
+
+87
+00:10:08,117 --> 00:10:17,583
+Signature 1 is C to T at CpG sites, from spontaneous deamination of 5-methylcytosine to thymine. It rises with patient age, like a clock.
+
+88
+00:10:17,583 --> 00:10:27,433
+Signatures 2 and 13 are C to T and C to G changes at TpC sites, attributed to APOBEC cytidine deaminases, enzymes that edit DNA.
+
+89
+00:10:27,433 --> 00:10:32,283
+Signature 4 is mostly C to A with a transcriptional strand bias;
+
+90
+00:10:32,283 --> 00:10:38,683
+it is found in smoking-associated cancers such as lung, and fits bulky tobacco-smoke adducts on DNA.
+
+91
+00:10:38,683 --> 00:10:46,617
+Signature 7 is C to T after a pyrimidine, the features of ultraviolet damage, and it is found in melanoma.
+
+92
+00:10:47,217 --> 00:10:54,767
+Figure 3 maps every signature across the 30 cancer types. Our miniature does the same with the exposures W:
+
+93
+00:10:54,767 --> 00:11:00,783
+each simulated group lights up for the process we planted, and Signature 1 is everywhere.
+
+94
+00:11:00,783 --> 00:11:07,567
+The biological insight: a tumour genome records the chemistry of the DNA damage and repair it experienced.
+
+95
+00:11:07,567 --> 00:11:15,117
+NMF turned nearly five million mutations into 21 interpretable processes, and the many with unknown causes became new hypotheses.
+
+96
+00:11:15,717 --> 00:11:25,567
+What is NMF good at? Its parts are physically meaningful, and it is model-free: we never told it the mechanism or gave it reference spectra.
+
+97
+00:11:25,567 --> 00:11:35,800
+It compresses and denoises, 12,341 numbers to 1,026 in the kinetics example; with the KL loss it handles counts; and it scales to very large matrices.
+
+98
+00:11:36,400 --> 00:11:41,650
+Now the failure modes, each with evidence. First, the answer is not unique.
+
+99
+00:11:41,650 --> 00:11:49,583
+With overlapping bands and no pure samples, NMF's spectra differ from the truth, yet fit the data just as well.
+
+100
+00:11:49,583 --> 00:11:58,667
+Second, k. Asked for four parts from three species, NMF splits the green species in two, and stability drops from 0.998 to 0.906.
+
+101
+00:11:58,667 --> 00:12:04,683
+Third, the result depends on the start: six random starts end between 1.50 and 1.76.
+
+102
+00:12:04,683 --> 00:12:13,000
+Fourth, real data break the model. A constant baseline is not an additive part, so it leaks into the recovered spectra;
+
+103
+00:12:13,000 --> 00:12:17,467
+scattering, peak shifts and a wrong noise model do the same.
+
+104
+00:12:18,067 --> 00:12:21,767
+At graduate level the questions are identifiability and complexity.
+
+105
+00:12:21,767 --> 00:12:28,933
+Any invertible T that keeps both factors non-negative gives the same product, so when is the answer unique?
+
+106
+00:12:28,933 --> 00:12:36,867
+Normalise each row of W and every sample becomes a point in a triangle whose corners are the pure parts.
+
+107
+00:12:36,867 --> 00:12:42,883
+If the samples reach the edges, only one triangle fits, so the factorization is unique.
+
+108
+00:12:42,883 --> 00:12:48,517
+If they are bunched in the middle, many triangles fit, like the dashed one.
+
+109
+00:12:48,517 --> 00:12:52,217
+In general, exact NMF is NP-hard, as Vavasis showed.
+
+110
+00:12:52,217 --> 00:13:00,533
+But if every part has a pure sample, the separable case, Arora and colleagues gave a provably correct algorithm, and Huang,
+
+111
+00:13:00,533 --> 00:13:05,000
+Sidiropoulos and Fu proved uniqueness under the weaker sufficiently scattered condition.
+
+112
+00:13:05,000 --> 00:13:12,167
+In practice, alternating non-negative least squares and HALS converge faster than multiplicative updates, and beta-divergences generalize the loss.
+
+113
+00:13:12,767 --> 00:13:19,550
+Which conclusions would not be justified from the transformed data alone? Component B is one pure species:
+
+114
+00:13:19,550 --> 00:13:23,250
+it could be several species that always change together.
+
+115
+00:13:23,250 --> 00:13:29,267
+B reaches 0.6 millimolar: W has no absolute scale, so that needs an extinction coefficient.
+
+116
+00:13:29,267 --> 00:13:39,517
+There are exactly three species: k was our choice. And Signature 4 is caused by smoking: NMF finds a pattern, and the cause needs outside evidence.
+
+117
+00:13:40,117 --> 00:13:49,583
+To answer the four questions. What goes in: a non-negative matrix, samples by features. What comes out: W, the amounts, and H, the parts.
+
+118
+00:13:49,583 --> 00:13:58,667
+What is kept is the additive structure; what is lost is noise, scale, order and minor components. And the question that gets easier:
+
+119
+00:13:58,667 --> 00:14:03,133
+which pure components are mixed here, and how much of each?
+
+120
+00:14:03,733 --> 00:14:10,900
+For further reading, from beginner to graduate level: start with Lee and Seung's Nature paper and Gillis's tutorial;
+
+121
+00:14:10,900 --> 00:14:17,683
+then the algorithms and the chemical and biological applications; and finally the theory of uniqueness and complexity.
+
+122
+00:14:17,683 --> 00:14:20,233
+Full references are in our README.
+
+123
+00:14:20,233 --> 00:14:23,550
+Thank you. We are happy to take questions.
+

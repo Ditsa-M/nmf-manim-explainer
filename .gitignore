@@ -1,0 +1,13 @@
+# environments
+.env/
+.venv/
+.mamba/
+__pycache__/
+*.pyc
+
+# render output (the final video is published as a GitHub Release asset)
+media/
+NMF_explained*.mp4
+
+# personal notes
+NEXT_SESSION_PROMPT.md
